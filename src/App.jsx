@@ -207,8 +207,11 @@ export default function App() {
     <>
       <PasswordOverlay unlocked={unlocked} setUnlocked={setUnlocked} />
 
-      <Canvas camera={{ position: [0, 0, 50], fov: 25 }} shadows>
-        <color attach="background" args={['#F0F0F0']} />
+     <Canvas 
+  camera={{ position: [0, 0, 50], fov: 25 }} 
+  shadows
+  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} // <--- DAS HIER HINZUFÜGEN
+>
         
         <ambientLight intensity={0.6} />
         <spotLight position={[15, 15, 15]} angle={0.2} penumbra={1} intensity={1.5} castShadow />
