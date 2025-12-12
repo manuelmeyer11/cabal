@@ -11,6 +11,7 @@ const SPACING = 4.0
 const SCALE_BASE = 20.0
 const SCALE_HOVER = 22.0
 const SCALE_DETAIL = 100.0
+const PASSWORD = "cbl-1212"
 
 // --- FARBE ---
 const BLACK_COLOR = '#1a1a1a'
@@ -36,7 +37,7 @@ function useScrollRotation() {
 }
 
 // --- MODELL ---
-function CabalModel({ gridPosition, id, scrollRef, selectedId, onSelect, color }) {
+function CabalModel({ gridPosition, id, scrollRef, selectedId, onSelect, color, unlocked }) {
   const { scene } = useGLTF('/cabal.glb')
   const { viewport } = useThree()
   const meshRef = useRef()
@@ -45,6 +46,7 @@ function CabalModel({ gridPosition, id, scrollRef, selectedId, onSelect, color }
   const isAnotherSelected = selectedId !== null && !isSelected
   const isGridMode = selectedId === null
 
+  // Haupt-Spring für Interaktion
   const spring = useSpring({
     position: isSelected ? [0, 0, 0] : gridPosition,
     scale: isSelected ? SCALE_DETAIL : (isAnotherSelected ? 0 : SCALE_BASE),
@@ -52,7 +54,7 @@ function CabalModel({ gridPosition, id, scrollRef, selectedId, onSelect, color }
     config: config.molasses
   })
 
-  // Material gecloned und Farbe gesetzt
+  // Material clonen
   const clone = useMemo(() => {
     const clonedScene = scene.clone()
     clonedScene.traverse((child) => {
@@ -68,6 +70,9 @@ function CabalModel({ gridPosition, id, scrollRef, selectedId, onSelect, color }
 
   useFrame((state) => {
     if (!meshRef.current) return
+
+    // Wenn noch nicht unlocked, keine Rotation/Maus-Effekte
+    if (!unlocked) return;
 
     const currentScrollRot = scrollRef.current
     const mouseX = (state.pointer.x * viewport.width) / 1.5
@@ -100,8 +105,8 @@ function CabalModel({ gridPosition, id, scrollRef, selectedId, onSelect, color }
   return (
     <animated.group 
       {...spring} 
-      onClick={isGridMode ? () => onSelect(id) : undefined}
-      onPointerOver={() => { if (isGridMode) document.body.style.cursor = 'pointer' }}
+      onClick={isGridMode && unlocked ? () => onSelect(id) : undefined}
+      onPointerOver={() => { if (isGridMode && unlocked) document.body.style.cursor = 'pointer' }}
       onPointerOut={() => { document.body.style.cursor = 'auto' }}
     >
       <primitive object={clone} ref={meshRef} />
@@ -109,21 +114,26 @@ function CabalModel({ gridPosition, id, scrollRef, selectedId, onSelect, color }
   )
 }
 
-function Grid({ selectedId, setSelectedId }) {
+function Grid({ selectedId, setSelectedId, unlocked }) {
   const startX = -((GRID_X - 1) * SPACING) / 2
   const startY = -((GRID_Y - 1) * SPACING) / 2
   const scrollRef = useScrollRotation()
 
-  // --- GRID DATEN ---
+  // --- INTRO ANIMATION (Das Grid fliegt rein) ---
+  const introSpring = useSpring({
+    // Startet weit unten (y: -50) und klein (scale: 0) -> fliegt auf Pos 0 und Scale 1
+    position: unlocked ? [0, 0, 0] : [0, -50, -20],
+    scale: unlocked ? 1 : 0,
+    config: { mass: 2, tension: 100, friction: 30 },
+    delay: 200 // Kurze Verzögerung nach Password-Eingabe
+  })
+
   const modelsData = useMemo(() => {
     const items = []
-    
-    // Iterated color via grid
     for (let i = 0; i < GRID_X; i++) {
       for (let j = 0; j < GRID_Y; j++) {
         const x = startX + i * SPACING
         const y = startY + j * SPACING
-        
         items.push({
           id: `${i}-${j}`,
           position: [x, y, 0],
@@ -135,7 +145,8 @@ function Grid({ selectedId, setSelectedId }) {
   }, [])
 
   return (
-    <group>
+    // Wir packen alles in eine animierte Gruppe für den Intro-Effekt
+    <animated.group position={introSpring.position} scale={introSpring.scale}>
       {modelsData.map((data) => (
         <CabalModel 
           key={data.id}
@@ -145,28 +156,68 @@ function Grid({ selectedId, setSelectedId }) {
           selectedId={selectedId} 
           onSelect={setSelectedId}
           color={data.color}
+          unlocked={unlocked}
         />
       ))}
-    </group>
+    </animated.group>
+  )
+}
+
+// --- PASSWORD OVERLAY COMPONENT ---
+function PasswordOverlay({ unlocked, setUnlocked }) {
+  const [input, setInput] = useState("")
+  const [error, setError] = useState(false)
+
+  const handleChange = (e) => {
+    const val = e.target.value
+    setInput(val)
+    setError(false)
+    
+    // Check Password instantly
+    if (val === PASSWORD) {
+      setUnlocked(true)
+    }
+  }
+
+  return (
+    <div className={`overlay ${unlocked ? 'hidden' : ''}`}>
+      <div className="login-container">
+        <h1 className="logo">CABAL ACCESS</h1>
+        <input 
+          type="text" 
+          value={input}
+          onChange={handleChange}
+          placeholder="ENTER CODE"
+          className={`password-input ${error ? 'error' : ''}`}
+          autoFocus
+        />
+        <div className="status-line">
+          {unlocked ? "ACCESS GRANTED" : "LOCKED"}
+        </div>
+      </div>
+    </div>
   )
 }
 
 export default function App() {
   const [selectedId, setSelectedId] = useState(null)
+  const [unlocked, setUnlocked] = useState(false)
 
   return (
     <>
+      <PasswordOverlay unlocked={unlocked} setUnlocked={setUnlocked} />
+
       <Canvas camera={{ position: [0, 0, 50], fov: 25 }} shadows>
         <color attach="background" args={['#F0F0F0']} />
         
-        {/* Beleuchtung */}
         <ambientLight intensity={0.6} />
         <spotLight position={[15, 15, 15]} angle={0.2} penumbra={1} intensity={1.5} castShadow />
         <pointLight position={[-10, -5, -10]} intensity={1} color="#ffffff" />
 
-        <Grid selectedId={selectedId} setSelectedId={setSelectedId} />
+        <Grid selectedId={selectedId} setSelectedId={setSelectedId} unlocked={unlocked} />
 
         <Environment preset="warehouse" />
+        
         <animated.group visible={selectedId === null ? true : false}>
              <ContactShadows position={[0, -100, 0]} opacity={0.6} scale={80} blur={2} far={20} resolution={512} color="#000000" />
         </animated.group>
