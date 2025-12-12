@@ -16,10 +16,9 @@ const SCALE_DETAIL = 100.0
 const BLACK_COLOR = '#1a1a1a'
 
 // --- BASIS MATERIAL ---
-// Wir nutzen weiß als Basis, damit die zugewiesene Farbe (Schwarz) korrekt wirkt
 const baseCeramicMaterial = new THREE.MeshPhysicalMaterial({
   color: '#ffffff', 
-  roughness: 0.15,
+  roughness: 0.2,
   metalness: 0.0,
   clearcoat: 1.0,
   clearcoatRoughness: 0.1,
@@ -36,7 +35,7 @@ function useScrollRotation() {
   return rotationTarget
 }
 
-// --- DAS MODELL ---
+// --- MODELL ---
 function CabalModel({ gridPosition, id, scrollRef, selectedId, onSelect, color }) {
   const { scene } = useGLTF('/cabal.glb')
   const { viewport } = useThree()
@@ -53,7 +52,7 @@ function CabalModel({ gridPosition, id, scrollRef, selectedId, onSelect, color }
     config: config.molasses
   })
 
-  // Material clonen und Farbe setzen
+  // Material gecloned und Farbe gesetzt
   const clone = useMemo(() => {
     const clonedScene = scene.clone()
     clonedScene.traverse((child) => {
@@ -119,7 +118,7 @@ function Grid({ selectedId, setSelectedId }) {
   const modelsData = useMemo(() => {
     const items = []
     
-    // Wir iterieren einfach durch das Grid und geben jedem Item die Farbe Schwarz
+    // Iterated color via grid
     for (let i = 0; i < GRID_X; i++) {
       for (let j = 0; j < GRID_Y; j++) {
         const x = startX + i * SPACING
@@ -128,7 +127,7 @@ function Grid({ selectedId, setSelectedId }) {
         items.push({
           id: `${i}-${j}`,
           position: [x, y, 0],
-          color: BLACK_COLOR // Hier setzen wir alles auf Schwarz
+          color: BLACK_COLOR 
         })
       }
     }
